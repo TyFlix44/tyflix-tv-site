@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>NERO TV LAUNCHER</title>
+	<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+/* --- ORIGINAL STYLES --- */
+*,::after,::before { box-sizing: border-box; margin: 0; padding: 0 }
+
+:root{
+  --bg:#0b0f0c;
+  --surface:rgba(240,245,242,.06);
+  --surface2:rgba(0,255,102,.08);
+  --border:rgba(255,255,255,.15);
+  --border-focus:#00ff66;
+  --accent:#fff;
+  --accent-dim:rgba(255,255,255,.5);
+  --accent-faint:rgba(255,255,255,.12);
+  --accent-green:#00ff66;
+
+  --gutter:clamp(12px,3vw,48px);
+  --topbar-h:64px;
+  --card-gap:clamp(10px,1.5vw,16px);
+  --focus-scale:1.02;
+}
+
+body,html{
+height:100%;
+overflow:hidden;
+background:var(--bg);
+color:var(--accent);
+font-family:Rajdhani,sans-serif;
+-webkit-font-smoothing:antialiased;
+}
+
+.nav-card.locked { opacity: 0.5; filter: grayscale(1); }
+.nav-card.locked::after { content: "🔒 PREMIUM"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffcc00; font-weight: bold; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; z-index: 10; font-size: 0.8rem; pointer-events: none; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 99999; justify-content: center; align-items: center; }
+.modal-box { background: #161c19; padding: 30px; border: 1px solid var(--accent-green); border-radius: 20px; width: 350px; text-align: center; box-shadow: 0 0 30px rgba(0,255,102,0.1); }
+.modal-box h3 { font-family: Orbitron; margin-bottom: 20px; color: #fff; }
+.modal-box input { width: 100%; padding: 15px; background: #000; border: 1px solid #333; color: var(--accent-green); border-radius: 10px; margin-bottom: 20px; font-family: monospace; font-size: 1rem; text-align: center; outline: none; }
+.modal-box input:focus { border-color: var(--accent-green); outline: none; box-shadow: 0 0 5px var(--accent-green); }
+.modal-btns { display: flex; gap: 10px; }
+.modal-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-family: Orbitron; font-weight: bold; }
+.modal-btn:focus { outline: 2px solid #fff; }
+.btn-act { background: var(--accent-green); color: #000; }
+.btn-close { background: #333; color: #fff; }
+
+#canvas{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.25; }
+.scanlines{ position:fixed; inset:0; z-index:999; pointer-events:none; background:repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,.04) 3px, rgba(0,0,0,.04) 4px); }
+.vignette{ position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse 80% 80% at 50% 50%, rgba(0,255,102,.03), rgba(0,0,0,.75) 100%); }
+
+.shell{ position:relative; z-index:2; display:flex; flex-direction:column; height:100vh; width:100vw; overflow:hidden; }
+.topbar{ min-height:64px; height:auto; display:flex; align-items:center; flex-wrap:wrap; padding:10px var(--gutter); gap:14px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, rgba(11,15,12,.9), transparent); }
+.logo{ font-family:Orbitron,sans-serif; font-size:clamp(1rem,2vw,1.7rem); font-weight:900; letter-spacing:.15em; }
+.topbar-sep{ width:1px; height:28px; background:var(--border); }
+.active-label{ font-family:Orbitron; font-size:.75rem; letter-spacing:.18em; color:rgba(255,255,255,.55); }
+.topbar-right{ margin-left:auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.clock{ font-family:Orbitron; font-size:.7rem; }
+.unlock-btn { font-family: Orbitron; font-size: 0.6rem; color: #00ff66; border: 1px solid #00ff66; padding: 5px 12px; border-radius: 6px; background: rgba(0,255,102,0.1); cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 0.05em; }
+.unlock-btn:hover { background: #00ff66; color: #000; }
+
+.grid-area{ flex:1; display:flex; flex-direction:column; padding:25px var(--gutter); overflow:auto; }
+.section-row{ display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+.section-label{ font-family:Orbitron; font-size:.6rem; letter-spacing:.3em; color:rgba(255,255,255,.4); }
+.section-line{ flex:1; height:1px; background:linear-gradient(90deg, rgba(255,255,255,.08), transparent); }
+.nav-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:var(--card-gap); padding:4px; }
+.nav-card{ position:relative; display:flex; flex-direction:column; justify-content:flex-end; padding:16px; width:100%; min-height:140px; height:clamp(140px,18vw,180px); background:var(--surface); border:1px solid var(--border); border-radius:18px; backdrop-filter:blur(25px); text-decoration:none; overflow:hidden; box-shadow: 0 8px 32px rgba(0,0,0,.25), inset 0 1px 1px rgba(255,255,255,.1); transition: transform .12s, border-color .12s, background .12s; animation:lightweightCardIn .25s ease-out both; }
+@keyframes lightweightCardIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
+.card-bg-icon{ position:absolute; top:14px; right:16px; opacity:.03; }
+.card-bar{ position:absolute; left:0; bottom:0; height:3px; width:100%; background:linear-gradient(90deg, var(--accent-green), transparent); transform:scaleX(0); transform-origin:left; transition:.15s; }
+.card-num{ position:absolute; top:14px; left:18px; font-size:.52rem; font-family:Orbitron; opacity:.3; }
+.card-icon{ width:clamp(32px,4vw,38px); height:clamp(32px,4vw,38px); border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:8px; background:rgba(255,255,255,.05); border:1px solid var(--border); }
+.card-icon svg, .card-icon img{ width:60%; height:60%; object-fit:contain; }
+.card-title{ font-family:Orbitron; font-size:clamp(.65rem,.8vw,.78rem); font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.card-desc{ font-size:clamp(.55rem,.7vw,.68rem); color:rgba(255,255,255,.5); margin-top:2px; }
+.nav-card.focused, .nav-card:focus{ border-color:var(--border-focus)!important; background:var(--surface2)!important; transform:scale(var(--focus-scale)); z-index:99; }
+.nav-card.focused .card-bar, .nav-card:focus .card-bar{ transform:scaleX(1); }
+.nav-card.focused .card-title{ color:var(--accent-green); }
+.nav-card.focused .card-desc{ color:#fff; }
+.nav-card.pressing{ transform:scale(.97); }
+@media(max-width:900px){ .nav-grid{ grid-template-columns: repeat(3,1fr); } }
+@media(max-width:600px){ .nav-grid{ grid-template-columns: repeat(2,1fr); } .topbar{ justify-content:center; } }
+#app-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: var(--bg); }
+#app-frame { width: 100%; height: 100%; border: none; }
+.close-btn { position: absolute; top: 20px; right: 20px; z-index: 10000; background: rgba(255,0,0,0.2); border: 1px solid red; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-family: Orbitron; }
+</style>
+  </head>
+  <body>
+    
+  
+
+    <div id="premium-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>PREMIUM ACCESS</h3>
+            <input type="text" id="license-input" placeholder="TY-7D-XXXX" maxlength="15">
+            <div class="modal-btns">
+                <button class="modal-btn btn-close" onclick="closeModal()">CANCEL</button>
+                <button class="modal-btn btn-act" onclick="submitKey()">ACTIVATE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-overlay">
+        <button class="close-btn" onclick="closeApp()">CLOSE [X]</button>
+        <iframe id="app-frame" src=""></iframe>
+    </div>
+
+	<canvas id="canvas"></canvas>
+	<div class="scanlines"></div>
+	<div class="vignette"></div>
+
+	<div class="shell">
+	  <header class="topbar">
+		<span class="logo">TYFLIX</span>
+		<div class="topbar-sep"></div>
+		<span class="active-label">TV</span>
+		<div class="topbar-right">
+            
+            <button onclick="handleTopUnlock()" id="unlock-btn" class="unlock-btn">
+                UNLOCK PREMIUM ACCESS
+            </button>
+
+            <div class="topbar-sep"></div>
+            <span class="clock" id="clock">00:00 PM</span>
+        </div>
+	  </header>
+
+	  <div class="grid-area">
+		<div class="section-row">
+		  <span class="section-label">Select App</span>
+		  <div class="section-line"></div>
+		</div>
+
+	<div class="nav-grid" id="navGrid" style="grid-template-columns: repeat(5, 1fr);">
+    
+    <a href="tyflix.html" class="nav-card" data-id="movies" data-title="Movies" data-desc="Stream films &amp; TV shows">
+        <span class="card-num">01</span>
+        <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 2l-4 5M8 2l-4 5M20 2l-4 5"></path><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+        <div class="card-bar"></div>
+        <div class="card-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 2l-4 5M8 2l-4 5M20 2l-4 5"></path><line x1="2" y1="12" x2="22" y2="12"></line></svg></div>
+        <div class="card-title">Movies</div>
+        <div class="card-desc">Films &amp; TV shows</div>
+    </a>
+
+    <a href="iptv.html" class="nav-card" data-id="iptv" data-title="IPTV" data-desc="Live channels &amp; broadcasts">
+        <span class="card-num">02</span>
+        <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2C5.7 14.1 5.7 10.7 7.8 8.6"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.1 2.1 2.1 5.5 0 7.6"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>
+        <div class="card-bar"></div>
+        <div class="card-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2C5.7 14.1 5.7 10.7 7.8 8.6"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.1 2.1 2.1 5.5 0 7.6"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg></div>
+        <div class="card-title">IPTV</div>
+        <div class="card-desc">Live channels</div>
+    </a>
+
+    <a href="collab.html" class="nav-card" data-id="karatube" data-title="Collab Channels" data-desc="Local channels queue broadcast">
+        <span class="card-num">03</span>
+        <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <div class="card-bar"></div>
+        <div class="card-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div>
+        <div class="card-title">collab channels</div>
+        <div class="card-desc">local channels queue</div>
+    </a>
+
+    <a href="vivamax.html" class="nav-card" data-id="vivamax" data-title="Vivamax" data-desc="Stream exclusive Pinoy blockbuster movies">
+        <span class="card-num">04</span>
+        <img class="card-bg-icon" src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Vivamax_logo.png" width="64" height="64" alt="Vivamax Background">
+        <div class="card-bar"></div>
+        <div class="card-icon"><img src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Vivamax_logo.png" alt="Vivamax Icon"></div>
+        <div class="card-title">Vivamax</div>
+        <div class="card-desc">Pinoy Blockbusters</div>
+    </a>
+
+    <a href="javascript:void(0)" onclick="handleKaraokeClick()" class="nav-card" data-premium="true" data-id="karaoke" data-title="Karaoke Night" data-desc="Sing & stream karaoke hits">
+    <span class="card-num">05</span>
+    <svg class="card-bg-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=".8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v10"></path>
+        <path d="M8 6a4 4 0 0 1 8 0v6a4 4 0 0 1-8 0V6z"></path>
+        <path d="M5 10a7 7 0 0 0 14 0"></path>
+        <line x1="12" y1="19" x2="12" y2="22"></line>
+    </svg>
+    <div class="card-bar"></div>
+    <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v10"></path>
+            <path d="M8 6a4 4 0 0 1 8 0v6a4 4 0 0 1-8 0V6z"></path>
+            <path d="M5 10a7 7 0 0 0 14 0"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+        </svg>
+    </div>
+    <div class="card-title">Karaoke</div>
+    <div class="card-desc">Sing & enjoy music</div>
+    </a>
+</div>
+
+<script>
+// --- MODAL NAVIGATION SETUP ---
+const modal = document.getElementById('premium-modal');
+const licenseInput = document.getElementById('license-input');
+const modalBtns = document.querySelectorAll('.modal-btn'); 
+const modalFocusables = [licenseInput, modalBtns[0], modalBtns[1]];
+let modalActiveIdx = 0;
+
+function openModal() { 
+    modal.style.display = 'flex'; 
+    modalActiveIdx = 0;
+    modalFocusables[modalActiveIdx].focus();
+}
+function closeModal() { 
+    modal.style.display = 'none'; 
+    cards[activeIdx].focus();
+}
+function handleTopUnlock() { openModal(); }
+
+function submitKey() {
+    const key = licenseInput.value.toUpperCase();
+    if (key.includes('TY-') && key.includes('D-')) {
+        const parts = key.split('-');
+        const durationStr = parts[1].replace('D', '');
+        const durationDays = parseInt(durationStr); 
+        
+        if (!isNaN(durationDays)) {
+            const expiryDate = new Date().getTime() + (durationDays * 24 * 60 * 60 * 1000);
+            localStorage.setItem('premium_expiry', expiryDate);
+            alert("Success! Access granted.");
+            closeModal();
+            checkPremiumAccess();
+        } else {
+            alert("Invalid Key Format!");
+        }
+    } else {
+        alert("Invalid Key!");
+    }
+}
+
+// --- PREMIUM LOGIC ---
+function checkPremiumAccess() {
+    const expiry = localStorage.getItem('premium_expiry');
+    const now = new Date().getTime();
+    const karaokeCard = document.querySelector('[data-id="karaoke"]');
+    const unlockBtn = document.getElementById('unlock-btn');
+
+    if (expiry && now > parseInt(expiry)) {
+        localStorage.removeItem('premium_expiry');
+    }
+
+    if (expiry && now < parseInt(expiry)) {
+        karaokeCard.classList.remove('locked');
+        unlockBtn.textContent = "PREMIUM ACTIVE";
+        return true;
+    } else {
+        karaokeCard.classList.add('locked');
+        unlockBtn.textContent = "UNLOCK PREMIUM ACCESS";
+        return false;
+    }
+}
+
+setInterval(checkPremiumAccess, 60000);
+
+function handleKaraokeClick() {
+    if (checkPremiumAccess()) {
+        openApp('https://tyflixtv-karaoke.netlify.app/');
+    } else {
+        openModal();
+    }
+}
+
+// --- APP LOADER ---
+function openApp(url) {
+    const overlay = document.getElementById('app-overlay');
+    const frame = document.getElementById('app-frame');
+    frame.src = url;
+    overlay.style.display = 'block';
+}
+
+function closeApp() {
+    const overlay = document.getElementById('app-overlay');
+    const frame = document.getElementById('app-frame');
+    frame.src = ''; 
+    overlay.style.display = 'none';
+    cards[activeIdx].focus();
+}
+
+// --- ORIGINAL SCRIPTS ---
+function updateClock() {
+  var now = new Date();
+  var h = now.getHours() % 12 || 12;
+  var m = now.getMinutes().toString().padStart(2, "0");
+  var ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+  document.getElementById("clock").textContent = h + ":" + m + " " + ampm;
+}
+setInterval(updateClock, 1000); updateClock();
+
+var cards = document.querySelectorAll('.nav-card');
+var activeIdx = 0;
+var gridCols = 5; 
+
+cards.forEach(function(card, idx) {
+  card.setAttribute('tabindex', '0');
+  card.addEventListener('focus', function() {
+    activeIdx = idx;
+    cards.forEach(function(c) { c.classList.remove('focused'); });
+    this.classList.add('focused');
+  });
+});
+
+window.addEventListener('keydown', function(e) {
+  var code = e.keyCode || e.which;
+  var key = e.key;
+
+  // MODAL D-PAD NAVIGATION
+  if (modal.style.display === 'flex') {
+      if (key === 'ArrowRight' || code === 39 || key === 'ArrowDown' || code === 40) {
+          e.preventDefault();
+          modalActiveIdx = (modalActiveIdx + 1) % modalFocusables.length;
+          modalFocusables[modalActiveIdx].focus();
+      } 
+      else if (key === 'ArrowLeft' || code === 37 || key === 'ArrowUp' || code === 38) {
+          e.preventDefault();
+          modalActiveIdx = (modalActiveIdx - 1 + modalFocusables.length) % modalFocusables.length;
+          modalFocusables[modalActiveIdx].focus();
+      } 
+      else if (key === 'Enter' || code === 13 || code === 23) {
+          if (modalFocusables[modalActiveIdx] !== licenseInput) {
+             e.preventDefault();
+             modalFocusables[modalActiveIdx].click();
+          }
+      } 
+      else if (key === 'Escape' || code === 27) {
+          closeModal();
+      }
+      return;
+  }
+
+  // MAIN GRID NAVIGATION
+  if (key === 'ArrowRight' || code === 39) {
+    e.preventDefault();
+    if (activeIdx < cards.length - 1) { activeIdx++; cards[activeIdx].focus(); }
+  } 
+  else if (key === 'ArrowLeft' || code === 37) {
+    e.preventDefault();
+    if (activeIdx > 0) { activeIdx--; cards[activeIdx].focus(); }
+  } 
+  else if (key === 'ArrowDown' || code === 40) {
+    e.preventDefault();
+    if (activeIdx + gridCols < cards.length) { activeIdx += gridCols; cards[activeIdx].focus(); }
+  }
+  else if (key === 'ArrowUp' || code === 38) {
+    e.preventDefault();
+    if (activeIdx - gridCols >= 0) { activeIdx -= gridCols; cards[activeIdx].focus(); }
+  }
+  else if (key === 'Enter' || code === 13 || code === 23) {
+    e.preventDefault();
+    cards[activeIdx].classList.add('pressing');
+    setTimeout(function() { cards[activeIdx].click(); }, 150);
+  }
+  else if ((code >= 49 && code <= 52) || (key >= '1' && key <= '4')) {
+    var targetNum = (code >= 49 && code <= 52) ? (code - 49) : (parseInt(key) - 1);
+    if (cards[targetNum]) { e.preventDefault(); activeIdx = targetNum; cards[targetNum].focus(); }
+  }
+});
+
+window.addEventListener('load', function() {
+  checkPremiumAccess();
+  if (cards.length > 0) { setTimeout(function() { cards[0].focus(); }, 300); }
+});
+</script>
+
+  </body>
+</html>
